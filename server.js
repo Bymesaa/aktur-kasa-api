@@ -9,7 +9,7 @@ const app = express();
 // ==========================================
 // 🛡️ 1. GÜVENLİK KALKANI: SADECE NETLIFY'A İZİN VER
 // ==========================================
-const izinVerilenSiteler = ['https://senin-uygulaman.netlify.app']; // BURAYI KENDİ NETLIFY ADRESİNLE DEĞİŞTİR
+const izinVerilenSiteler = ['https://voluble-druid-b43db7.netlify.app/']; // BURAYI KENDİ NETLIFY ADRESİNLE DEĞİŞTİR
 
 app.use(cors({
     origin: function (origin, callback) {
