@@ -7,9 +7,9 @@ const qs = require('querystring');
 const app = express();
 
 // ==========================================
-// 🛡️ 1. GÜVENLİK KALKANI: SADECE NETLIFY'A İZİN VER
+// 🛡️ 1. GÜVENLİK KALKANI
 // ==========================================
-const izinVerilenSiteler = ['https://voluble-druid-b43db7.netlify.app']; // BURAYI KENDİ NETLIFY ADRESİNLE DEĞİŞTİR
+const izinVerilenSiteler = ['https://voluble-druid-b43db7.netlify.app']; 
 
 app.use(cors({
     origin: function (origin, callback) {
@@ -22,14 +22,13 @@ app.use(cors({
 }));
 
 // ==========================================
-// 🛡️ 2. GÜVENLİK KALKANI: GİZLİ API ŞİFRESİ
+// 🛡️ 2. GİZLİ ŞİFRE KALKANI
 // ==========================================
 const GIZLI_API_SIFRESI = process.env.API_KEY || "AKTUR_GIZLI_SIFRE_2026";
 
 app.use((req, res, next) => {
     const gelenSifre = req.query.apiKey || req.headers['x-api-key'];
     if (gelenSifre !== GIZLI_API_SIFRESI) {
-        console.log(`[GÜVENLİK UYARISI] Yetkisiz erişim denemesi engellendi!`);
         return res.status(401).json({ hata: "Yetkisiz Erişim! Geçersiz API Anahtarı." });
     }
     next();
@@ -41,12 +40,14 @@ app.use((req, res, next) => {
 const username = process.env.OPIS_USER || "akturai";
 const password = process.env.OPIS_PASS || "akturai1453";
 
+// 🕒 UTC DEĞİL, KESİN TÜRKİYE SAATİNE (UTC+3) ZORLUYORUZ!
 function getBugunKutu() {
     const today = new Date();
-    const ay = String(today.getMonth() + 1).padStart(2, '0');
-    const gun = String(today.getDate()).padStart(2, '0');
-    const yil = today.getFullYear();
-    return `${ay}/${gun}/${yil}`; // OPIS Amerikan Formatı (AA/GG/YYYY)
+    const trTime = new Date(today.toLocaleString("en-US", { timeZone: "Europe/Istanbul" }));
+    const ay = String(trTime.getMonth() + 1).padStart(2, '0');
+    const gun = String(trTime.getDate()).padStart(2, '0');
+    const yil = trTime.getFullYear();
+    return `${ay}/${gun}/${yil}`; 
 }
 
 // ==============================================================================================
@@ -61,12 +62,12 @@ const SUNUCULAR_HASILAT = [
 
 async function opisHasilatSorgula(sunucu) {
     console.log(`[HASILAT] Kasa: ${sunucu.port} taranıyor...`);
-    const axiosInstance = axios.create({ timeout: 25000, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+    const axiosInstance = axios.create({ timeout: 25000, headers: { 'User-Agent': 'Mozilla/5.0' } });
     let cookies = [];
     let kasaCiroListesi = [];
 
     try {
-        // 1. KASAYA GİRİŞ
+        // 1. GİRİŞ YAP
         let res = await axiosInstance.get(`${sunucu.url}/login.jsf`);
         if (res.headers['set-cookie']) cookies = res.headers['set-cookie'].map(c => c.split(';')[0]);
         let $ = cheerio.load(res.data);
@@ -78,14 +79,23 @@ async function opisHasilatSorgula(sunucu) {
 
         const bugunKutu = getBugunKutu();
 
-        // 2. KASA RAPORUNA GİT
+        // 2. HASILAT RAPORUNA GİT
         res = await axiosInstance.get(`${sunucu.url}/reports/cashListReport.jsf`, { headers: { 'Cookie': cookies.join('; ') } });
         $ = cheerio.load(res.data);
         viewState = $('input[name="javax.faces.ViewState"]').val();
 
         if (!$('title').text().toLowerCase().includes('login')) {
-            let baslangicInput = $('td:contains("Başlangıç Tarihi")').next('td').find('input').attr('name') || 'form:j_idt18_input';
-            let bitisInput = $('td:contains("Bitiş Tarihi")').next('td').find('input').attr('name') || 'form:j_idt20_input';
+            // Dinamik inputları (Tarih kutucuklarını) garanti şekilde buluyoruz
+            let dateInputs = [];
+            $('input').each((i, el) => {
+                let name = $(el).attr('name');
+                if (name && name.includes('_input')) {
+                    dateInputs.push(name);
+                }
+            });
+            let baslangicInput = dateInputs[0] || 'form:j_idt18_input';
+            let bitisInput = dateInputs[1] || 'form:j_idt20_input';
+            
             let gosterBtn = $('button:contains("GÖSTER")').attr('name') || 'form:j_idt21';
 
             let reportDataH = qs.stringify({
@@ -110,9 +120,16 @@ async function opisHasilatSorgula(sunucu) {
             });
 
             let xmlData = res.data;
-            let cdataMatch = xmlData.match(/<!\[CDATA\[(.*?)\]\]>/s);
-            let tableHtml = cdataMatch ? cdataMatch[1] : xmlData;
-            $ = cheerio.load(tableHtml);
+            
+            // 🛠️ HATA ÇÖZÜMÜ: SADECE İLK CDATA'YI DEĞİL, GELEN TÜM TABLOLARI TOPLUYORUZ
+            let combinedHtml = "";
+            const cdataRegex = /<!\[CDATA\[(.*?)\]\]>/gs;
+            let match;
+            while ((match = cdataRegex.exec(xmlData)) !== null) {
+                combinedHtml += match[1];
+            }
+            
+            $ = cheerio.load(combinedHtml || xmlData);
 
             // 3. TABLODAN KASİYER (1. İndeks) ve TOPLAM CİRO (10. İndeks) VERİLERİNİ ÇEK
             $('tbody.ui-datatable-data tr').each((i, row) => {
@@ -139,9 +156,6 @@ async function opisHasilatSorgula(sunucu) {
 }
 
 app.get('/api/hasilat-sorgula', async (req, res) => {
-    console.log(`\n================================`);
-    console.log(`[YENİ] HASILAT SORGUSU BAŞLATILDI`);
-
     try {
         let tumKasaVerileri = [];
         
@@ -150,7 +164,6 @@ app.get('/api/hasilat-sorgula', async (req, res) => {
             tumKasaVerileri = tumKasaVerileri.concat(sonuc);
         }
 
-        // AYNI İSİMLİ KASALARI BİRLEŞTİR
         let birlesikKasalar = {};
         let genelToplamCiro = 0;
 
@@ -162,7 +175,6 @@ app.get('/api/hasilat-sorgula', async (req, res) => {
             genelToplamCiro += kasa.ciro;
         }
 
-        // OBJEYİ DİZİYE ÇEVİR VE BÜYÜKTEN KÜÇÜĞE SIRALA
         let kasaListesi = Object.keys(birlesikKasalar).map(isim => {
             return { isim: isim, ciro: birlesikKasalar[isim] };
         });
@@ -176,7 +188,6 @@ app.get('/api/hasilat-sorgula', async (req, res) => {
         });
 
     } catch (error) {
-        console.error(`[KRİTİK HATA] Hasılat Sunucu Hatası: ${error.message}`);
         res.status(500).json({ hata: "Hasılat sunucusu yanıt vermedi." });
     }
 });
