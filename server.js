@@ -18,6 +18,15 @@ app.use(cors({
     }
 }));
 
+}
+  }
+}));
+
+// UPTIMEROBOT HIZLI KONTROL KAPISI
+app.get('/ping', (req, res) => {
+    res.status(200).send('PONG - SUNUCU UYANIK');
+});
+
 const GIZLI_API_SIFRESI = process.env.API_KEY || "AKTUR_GIZLI_SIFRE_2026";
 
 app.use((req, res, next) => {
