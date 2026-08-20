@@ -6,7 +6,12 @@ const qs = require('querystring');
 
 const app = express();
 
-const izinVerilenSiteler = ['https://voluble-druid-b43db7.netlify.app']; 
+// UPTIMEROBOT HIZLI KONTROL KAPISI (En üste alıyoruz ki güvenliğe takılmasın)
+app.get('/ping', (req, res) => {
+    res.status(200).send('PONG - SUNUCU UYANIK');
+});
+
+const izinVerilenSiteler = ['https://voluble-druid-b43db7.netlify.app'];
 
 app.use(cors({
     origin: function (origin, callback) {
@@ -22,9 +27,6 @@ app.use(cors({
   }
 }));
 
-// UPTIMEROBOT HIZLI KONTROL KAPISI
-app.get('/ping', (req, res) => {
-    res.status(200).send('PONG - SUNUCU UYANIK');
 });
 
 const GIZLI_API_SIFRESI = process.env.API_KEY || "AKTUR_GIZLI_SIFRE_2026";
