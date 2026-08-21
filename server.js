@@ -220,5 +220,5 @@ app.get('/api/hasilat-sorgula', async (req, res) => {
     }
 });
 
-const port = process.env.PORT || 10000;
+const port = process.env.PORT || 10001;
 app.listen(port, () => console.log(`[API AKTİF] Hasılat Motoru Dinleniyor...`));
