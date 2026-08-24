@@ -11,8 +11,7 @@ app.get('/ping', (req, res) => {
     res.status(200).send('PONG - SUNUCU UYANIK');
 });
 
-const izinVerilenSiteler = ['https://voluble-druid-b43db7.netlify.app'];
-
+const izinVerilenSiteler = ['https://voluble-druid-b43db7.netlify.app', 'https://calm-sprite-e9fe7e.netlify.app'];
 app.use(cors({
     origin: function (origin, callback) {
         if (!origin || izinVerilenSiteler.indexOf(origin) !== -1) {
