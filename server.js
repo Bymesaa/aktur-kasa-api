@@ -6,7 +6,7 @@ const qs = require('querystring');
 
 const app = express();
 
-// UPTIMEROBOT HIZLI KONTROL KAPISI (En üste alıyoruz ki güvenliğe takılmasın)
+// UPTIMEROBOT HIZLI KONTROL KAPISI
 app.get('/ping', (req, res) => {
     res.status(200).send('PONG - SUNUCU UYANIK');
 });
@@ -184,26 +184,38 @@ app.get('/api/hasilat-sorgula', async (req, res) => {
             }
         }
 
+        // 🎯 GÜNCELLENEN KISIM: Kasaları ismine göre ayırıyoruz
         let birlesikKasalar = {};
         let genelToplamCiro = 0;
         let devirToplamCiro = 0;
 
+        // 00:00 Öncesi Satışlar
         for (let kasa of tumKasaVerileri) {
             if (!birlesikKasalar[kasa.isim]) {
-                birlesikKasalar[kasa.isim] = 0;
+                birlesikKasalar[kasa.isim] = { ciro: 0, devir: 0 };
             }
-            birlesikKasalar[kasa.isim] += kasa.ciro;
+            birlesikKasalar[kasa.isim].ciro += kasa.ciro;
             genelToplamCiro += kasa.ciro;
         }
         
+        // 00:00 Sonrası Satışlar (DEVİR)
         for (let devKasa of devirKasaVerileri) {
+            if (!birlesikKasalar[devKasa.isim]) {
+                birlesikKasalar[devKasa.isim] = { ciro: 0, devir: 0 };
+            }
+            birlesikKasalar[devKasa.isim].devir += devKasa.ciro;
             devirToplamCiro += devKasa.ciro;
         }
 
         let kasaListesi = Object.keys(birlesikKasalar).map(isim => {
-            return { isim: isim, ciro: birlesikKasalar[isim] };
+            return { 
+                isim: isim, 
+                ciro: birlesikKasalar[isim].ciro,
+                devir: birlesikKasalar[isim].devir // 🎯 Artık HTML'e bu veri tek tek gidiyor!
+            };
         });
-        kasaListesi.sort((a, b) => b.ciro - a.ciro);
+        
+        kasaListesi.sort((a, b) => (b.ciro + b.devir) - (a.ciro + a.devir));
 
         res.json({
             basarili: true,
@@ -211,7 +223,11 @@ app.get('/api/hasilat-sorgula', async (req, res) => {
             genelToplam: genelToplamCiro.toFixed(2),
             devirToplam: devirToplamCiro.toFixed(2),
             isDevirVakti: isDevirVakti,
-            kasalar: kasaListesi.map(k => ({ isim: k.isim, ciro: k.ciro.toFixed(2) }))
+            kasalar: kasaListesi.map(k => ({ 
+                isim: k.isim, 
+                ciro: k.ciro.toFixed(2),
+                devir: k.devir.toFixed(2)
+            }))
         });
 
     } catch (error) {
